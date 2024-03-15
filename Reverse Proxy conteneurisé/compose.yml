@@ -1,0 +1,65 @@
+version: "3.9"
+services:
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: "true"
+      MYSQL_DATABASE: "passbolt"
+      MYSQL_USER: "passbolt"
+      MYSQL_PASSWORD: "P4ssb0lt"
+    volumes:
+      - database_volume:/var/lib/mysql
+    networks:
+      - mon-reseau
+
+  passbolt:
+    image: passbolt/passbolt:latest-ce
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      APP_FULL_BASE_URL: http://passbolt.103.picagraine.net
+      DATASOURCES_DEFAULT_HOST: "db"
+      DATASOURCES_DEFAULT_USERNAME: "passbolt"
+      DATASOURCES_DEFAULT_PASSWORD: "P4ssb0lt"
+      DATASOURCES_DEFAULT_DATABASE: "passbolt"
+    volumes:
+      - gpg_volume:/etc/passbolt/gpg
+      - jwt_volume:/etc/passbolt/jwt
+    command:
+      [
+        "/usr/bin/wait-for.sh",
+        "-t",
+        "0",
+        "db:3306",
+        "--",
+        "/docker-entrypoint.sh",
+      ]
+    ports:
+      - 8081:80
+      - 8443:443
+    networks:
+      - mon-reseau
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - passbolt
+    networks:
+      - mon-reseau
+
+volumes:
+  nginx.conf:
+  reverse-proxy.conf:
+  database_volume:
+  gpg_volume:
+  jwt_volume:
+
+networks:
+  mon-reseau:
+    driver: bridge
